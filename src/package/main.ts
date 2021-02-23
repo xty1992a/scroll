@@ -204,6 +204,7 @@ export default class Scroll extends utils.EmitAble {
   private onMove = (e: MouseEvent & TouchEvent) => {
     if (this.destroyed) return;
     if (!this.state.hasDown || this.state.onInertial) return;
+    e.preventDefault();
     const { clientX, clientY } = utils.getPoint(e);
     const deltaY = clientY - this.point.startY;
     const deltaX = clientX - this.point.startX;
