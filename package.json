@@ -2,7 +2,12 @@
   "name": "@redbuck/scroll",
   "version": "1.0.0",
   "description": "scroll",
-  "main": "index.js",
+  "main": "lib/scroll.js",
+  "files": [
+    "src",
+    "lib",
+    "README.md"
+  ],
   "scripts": {
     "pub": "npm publish --access public",
     "prepublishOnly": "npm run build",

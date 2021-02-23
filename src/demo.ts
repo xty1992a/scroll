@@ -1,4 +1,7 @@
-import Scroll from "./package/main";
+// import Scroll from "./package/main";
+
+// @ts-ignore
+import Scroll from "../lib/scroll";
 
 const sleep = (time: number) =>
   // @ts-ignore
@@ -30,10 +33,13 @@ new window.Vue({
     },
   },
   mounted() {
-    const scroll: Scroll = new Scroll(this.$el, { scrollbar: true });
+    const scroll = new Scroll(this.$el, {
+      scrollbar: true,
+      reachBottomOffset: 300,
+    });
 
-    scroll.on("scroll", (e) => {});
-    scroll.on("reach-bottom", async (e) => {
+    scroll.on("scroll", (e: any) => {});
+    scroll.on("reach-bottom", async (e: any) => {
       await this.fetchList();
       this.$nextTick(() => {
         scroll.refresh();
