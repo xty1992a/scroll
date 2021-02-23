@@ -1,6 +1,4 @@
-/*
-config from development packages
-* */
+process.env.NODE_ENV = "development";
 const path = require("path");
 const webpack = require("webpack");
 const base = require("./webpack.base");

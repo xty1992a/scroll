@@ -1,3 +1,5 @@
+process.env.NODE_ENV = "production";
+
 const base = require("./webpack.base");
 const merge = require("webpack-merge");
 const { root } = require("./utils");

@@ -1,4 +1,8 @@
 const { root } = require("./utils");
+
+const dev = process.env.NODE_ENV === "development";
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+
 const baseConfig = {
   resolve: {
     extensions: [".ts", ".js"],
@@ -16,6 +20,25 @@ const baseConfig = {
           loader: "ts-loader",
         },
         exclude: /(node_modules)/,
+      },
+      {
+        test: /\.less$/,
+        use: [
+          dev
+            ? {
+                loader: "style-loader",
+              }
+            : MiniCssExtractPlugin.loader,
+          {
+            loader: "css-loader",
+          },
+          {
+            loader: "postcss-loader",
+          },
+          {
+            loader: "less-loader",
+          },
+        ],
       },
     ],
   },

@@ -43,14 +43,12 @@ export default class Scrollbar {
   setup() {
     const track = (this.$track = document.createElement("div"));
     const slide = (this.$slide = document.createElement("div"));
-    track.className = "scrollbar__track";
-    slide.className = "scrollbar__slide";
 
-    track.style.cssText = trackStyle;
-    slide.style.cssText = slideStyle;
+    this.insertStyle();
 
     track.appendChild(slide);
     this.$parent.appendChild(track);
+    this.setDomStyle = utils.throttle(this.setDomStyle, 5);
   }
 
   setContext(state: ctxState) {
@@ -58,12 +56,28 @@ export default class Scrollbar {
     this.setDomStyle();
   }
 
-  setScrollState(state: { x: number; y: number }) {
-    this.scrollState = state;
-    this.setDomStyle();
+  insertStyle() {
+    const { $track, $slide } = this;
+    $track.className = "scrollbar__track";
+    $slide.className = "scrollbar__slide";
+
+    const cssStyle = `
+      .${$track.className} {
+        ${trackStyle}
+      }
+      .${$slide.className} {
+        ${slideStyle}
+      }
+    `;
+    utils.insertStyle(cssStyle);
   }
 
-  setDomStyle() {
+  setScrollState = (state: { x: number; y: number }) => {
+    this.scrollState = state;
+    this.setDomStyle();
+  };
+
+  setDomStyle = () => {
     const {
       $slide: slide,
       $track: track,
@@ -81,12 +95,10 @@ export default class Scrollbar {
     }px,0)`;
 
     this.debounceFn();
-  }
+  };
 
   onChangeStop() {
     this.$slide.style.opacity = "0";
     this.$slide.style.transition = "opacity .6s";
-
-    console.log("stop");
   }
 }

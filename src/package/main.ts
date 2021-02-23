@@ -2,7 +2,7 @@ import * as utils from "./utils";
 import Scrollbar from "./scrollbar";
 
 // 速度系数
-const FACTOR_SPEED = 8;
+const SPEED_FACTOR = 8;
 // 速度每帧降低比值 0-1
 const SPEED_DISCOUNT = 0.96;
 // 最大衰减速度,不能超过1
@@ -38,17 +38,21 @@ type State = {
 
 type Option = {
   direction?: "scroll-x" | "scroll-y" | "all";
+  reachBottomOffset?: number;
+  scrollbar?: boolean; // should add scroll bar ?
 };
 // endregion
 
 const dftOption: Option = {
   direction: "scroll-y",
+  reachBottomOffset: 100,
+  scrollbar: true,
 };
 
 export default class Scroll extends utils.EmitAble {
   static MAX_OVER_LIMIT_RATIO = MAX_OVER_LIMIT_RATIO;
   static SPEED_DISCOUNT = SPEED_DISCOUNT;
-  static FACTOR_SPEED = FACTOR_SPEED;
+  static SPEED_FACTOR = SPEED_FACTOR;
 
   private $scrollbar: Scrollbar;
 
@@ -69,27 +73,6 @@ export default class Scroll extends utils.EmitAble {
   }
   get allowY() {
     return ["scroll-y", "all"].includes(this.$option.direction);
-  }
-
-  get minY() {
-    return (
-      this.limit.minY - this.domState.wrapHeight * Scroll.MAX_OVER_LIMIT_RATIO
-    );
-  }
-  get maxY() {
-    return (
-      this.limit.maxY + this.domState.wrapHeight * Scroll.MAX_OVER_LIMIT_RATIO
-    );
-  }
-  get minX() {
-    return (
-      this.limit.minX - this.domState.wrapWidth * Scroll.MAX_OVER_LIMIT_RATIO
-    );
-  }
-  get maxX() {
-    return (
-      this.limit.maxX + this.domState.wrapWidth * Scroll.MAX_OVER_LIMIT_RATIO
-    );
   }
 
   limit: {
@@ -149,13 +132,14 @@ export default class Scroll extends utils.EmitAble {
     this.$option = { ...dftOption, ...option };
     if (!this.$el.children.length) throw "el expect one child";
     this.$slide = this.$el.children[0] as HTMLElement;
-    this.$scrollbar = new Scrollbar(el);
-    this.listen();
     this.setup();
-    this.$scrollbar.setContext(this.domState);
   }
 
   private setup() {
+    this.$option.scrollbar && (this.$scrollbar = new Scrollbar(this.$el));
+    this.$el.style.position = "relative";
+    this.listen();
+    this.lazyEffectDom = utils.throttle(this.effectDom, 5);
     this.refresh();
   }
 
@@ -170,7 +154,21 @@ export default class Scroll extends utils.EmitAble {
       wrapHeight: $el.clientHeight,
       wrapWidth: $el.clientWidth,
     };
+    this.$scrollbar?.setContext(this.domState);
   }
+
+  scrollTo = async ({ x, y }: { x: number; y: number }, duration = 300) => {
+    const doc = document.body.scrollTop
+      ? document.body
+      : document.documentElement;
+    const manager = new utils.TweenManager({ duration, start: this.y, end: y });
+    while (manager.next()) {
+      await utils.TweenManager.frame();
+      this.scrollY = manager.currentValue;
+      this.limitScroll();
+      this.effectDom();
+    }
+  };
 
   // init listener
   private listen = () => {
@@ -214,11 +212,10 @@ export default class Scroll extends utils.EmitAble {
     this.limitScroll();
     // 记录最后10次滚动值
     this.pointStack.push({ clientY, clientX, timestamp: Date.now() });
-    this.effectDom();
+    this.lazyEffectDom();
     this.fire("on-move", e);
     this.fire("scroll", { x: this.x, y: this.y });
-    console.log("set scroll state");
-    this.$scrollbar.setScrollState({ x: this.x, y: this.y });
+    this.$scrollbar?.setScrollState({ x: this.x, y: this.y });
   };
 
   private onUp = (e: MouseEvent & TouchEvent) => {
@@ -236,9 +233,14 @@ export default class Scroll extends utils.EmitAble {
     if (this.destroyed) return;
     e.preventDefault();
     const direction = utils.limit(-1, 1)(e.deltaY || e.detail);
-    this.scrollY += Math.ceil(Scroll.FACTOR_SPEED * -direction * 2.6);
+    this.scrollY += Math.ceil(Scroll.SPEED_FACTOR * -direction * 2.6);
     this.limitScroll();
-    this.$scrollbar.setScrollState({ x: this.x, y: this.y });
+    this.$scrollbar?.setScrollState({ x: this.x, y: this.y });
+    if (
+      Math.abs(this.limit.minY - this.scrollY) < this.$option.reachBottomOffset
+    ) {
+      this.fire("reach-bottom", { x: this.x, y: this.y });
+    }
     this.effectDom();
   };
 
@@ -275,24 +277,38 @@ export default class Scroll extends utils.EmitAble {
         speed = 0;
       }
       this.scrollY = +(
-        this.scrollY + +(speed * Scroll.FACTOR_SPEED).toFixed(2)
+        this.scrollY + +(speed * Scroll.SPEED_FACTOR).toFixed(2)
       ).toFixed(2);
       this.limitScroll();
       if (this.state.overY) break;
       this.fire("scroll", { x: this.x, y: this.y });
-      this.$scrollbar.setScrollState({ x: this.x, y: this.y });
+      this.$scrollbar?.setScrollState({ x: this.x, y: this.y });
       this.effectDom();
     }
+
+    // 防止滚动到小数值导致模糊
+    this.scrollY = Math.floor(this.scrollY);
+    this.effectDom();
+
     this.fire("scroll-end", { x: this.x, y: this.y });
+
+    if (
+      Math.abs(this.limit.minY - this.scrollY) < this.$option.reachBottomOffset
+    ) {
+      this.fire("reach-bottom", { x: this.x, y: this.y });
+    }
 
     this.state.overY = false;
     this.state.onInertial = false;
   };
 
   // 将计算结果作用到dom force dom scroll
-  effectDom = () => {
+  private effectDom = () => {
     this.$slide.style.cssText = this.style;
   };
+
+  // 节流的EffectDom
+  private lazyEffectDom = this.effectDom;
 
   destroy = () => {
     this.destroyed = true;

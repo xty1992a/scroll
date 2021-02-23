@@ -84,6 +84,20 @@ export const debounce = (fn: Function, time: number = 100) => {
     }, time);
   };
 };
+
+export function throttle(fn: Function, interval = 500) {
+  let run = true;
+  return function () {
+    if (!run) return;
+    run = false;
+    const args = arguments;
+    setTimeout(() => {
+      fn.apply(this, args);
+      run = true;
+    }, interval);
+  };
+}
+
 interface listener<K extends keyof HTMLElementEventMap> {
   (this: HTMLElement, ev: HTMLElementEventMap[K]): any;
 }
@@ -154,4 +168,65 @@ export class EmitAble {
   clear(event: string) {
     this._task[event] = null;
   }
+}
+
+export const Tween = {
+  Linear: function (t: number, b: number, c: number, d: number) {
+    return (c * t) / d + b;
+  },
+};
+const dftOption = {
+  duration: 300,
+  start: 0,
+  end: 0,
+  easing: Tween.Linear,
+};
+export class TweenManager {
+  $options: {
+    easing: Function;
+    duration: number;
+    start: number;
+    end: number;
+  };
+  stamp: number;
+  get distance() {
+    return this.$options.end - this.$options.start;
+  }
+
+  get now() {
+    return Date.now ? Date.now() : new Date().getTime();
+  }
+
+  get currentStep() {
+    return this.now - this.stamp;
+  }
+
+  get currentValue() {
+    const { distance, currentStep } = this;
+    const { duration, easing, start } = this.$options;
+    return easing(currentStep, start, distance, duration);
+  }
+
+  constructor(opt = {}) {
+    this.$options = { ...dftOption, ...opt };
+    this.stamp = this.now;
+  }
+
+  next() {
+    return this.$options.duration > this.currentStep;
+  }
+
+  static sleep = sleep;
+
+  static frame() {
+    return requestAnimationFrame
+      ? new Promise(requestAnimationFrame)
+      : TweenManager.sleep(16);
+  }
+}
+
+export function insertStyle(cssStyle: string) {
+  const style = document.createElement("style");
+  style.innerHTML = cssStyle;
+  document.head.appendChild(style);
 }
